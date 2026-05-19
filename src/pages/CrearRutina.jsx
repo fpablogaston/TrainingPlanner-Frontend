@@ -79,7 +79,7 @@ const handleCreateRoutine = async () => {
   };
  
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6 relative">
       <div className="max-w-6xl mx-auto">
         {/* Back Button */}
         <Button
