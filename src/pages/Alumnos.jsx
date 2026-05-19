@@ -95,7 +95,7 @@ export function Students() {
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    <Button variant="outline" size="icon" title="Ver rutina">
+                    <Button variant="outline" size="icon" title="Ver rutina" onClick={() => navigate(`/rutina/${routine.id}`)}>
                       <Eye className="h-4 w-4" />
                     </Button>
                     <Button variant="outline" size="icon" onClick={() => handleDelete(routine.id)} title="Eliminar rutina">

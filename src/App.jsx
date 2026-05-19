@@ -3,6 +3,7 @@ import { Home } from "./pages/Home";
 import { Students } from "./pages/Alumnos";
 import { CreateRoutine } from "./pages/CrearRutina";
 import { Login } from "./pages/Login";
+import { Rutina } from "./pages/Rutina";
 
 function App() {
   return (
@@ -12,6 +13,7 @@ function App() {
         <Route path="/" element={<Home />} />
         <Route path="/alumnos" element={<Students />} />
         <Route path="/crear-rutina" element={<CreateRoutine />} />
+        <Route path="/rutina/:id" element={<Rutina />} />
       </Routes>
     </BrowserRouter>
   );
