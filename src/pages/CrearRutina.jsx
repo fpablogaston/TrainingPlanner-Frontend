@@ -1,180 +1,486 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Dumbbell, Save, ArrowLeft } from 'lucide-react';
-import { ExerciseItem } from '../components/ExerciseItem';
-import { AddExerciseDialog } from '../components/AddExerciseDialog';
-import { VideoDialog } from '../components/VideoDialog';
-import { Input } from '../components/ui/input';
+import { Dumbbell, ArrowLeft, Plus, Trash2, Save, CalendarDays, Loader2 } from 'lucide-react';
 import { Button } from '../components/ui/button';
+import { Input } from '../components/ui/input';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '../components/ui/dialog';
+import { rutinas, diasRutina, ejerciciosBase, ejerciciosDia } from '../services/api';
+
+const TOTAL_DIAS = 7;
+
+function EjercicioRow({ ejercicio, index, diaId, onUpdate, onDelete }) {
+  const upd = (field) => (e) => onUpdate(diaId, ejercicio.localId, field, e.target.value);
+
+  return (
+    <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-2">
+      {/* Main row */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="flex-shrink-0 w-6 h-6 rounded-full bg-gray-800 text-white text-xs flex items-center justify-center font-semibold">
+          {index + 1}
+        </span>
+
+        <Input
+          value={ejercicio.nombre}
+          onChange={upd('nombre')}
+          placeholder="Nombre del ejercicio"
+          className="flex-1 min-w-40"
+        />
+
+        <div className="flex items-center gap-1">
+          <span className="text-xs text-gray-500 whitespace-nowrap">KG</span>
+          <Input
+            type="number"
+            value={ejercicio.kg}
+            onChange={upd('kg')}
+            placeholder="0"
+            className="w-16 text-center"
+            min={0}
+            step={0.5}
+          />
+        </div>
+
+        <div className="flex items-center gap-1">
+          <span className="text-xs text-gray-500 whitespace-nowrap">Series</span>
+          <Input
+            type="number"
+            value={ejercicio.series}
+            onChange={upd('series')}
+            className="w-14 text-center"
+            min={0}
+          />
+        </div>
+
+        <div className="flex items-center gap-1">
+          <span className="text-xs text-gray-500 whitespace-nowrap">Reps</span>
+          <Input
+            type="number"
+            value={ejercicio.reps}
+            onChange={upd('reps')}
+            className="w-14 text-center"
+            min={0}
+          />
+        </div>
+
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={() => onDelete(diaId, ejercicio.localId)}
+          className="flex-shrink-0 text-red-400 hover:text-red-600 hover:bg-red-50"
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </div>
+
+      {/* Optional URLs */}
+      <div className="flex gap-2 pl-8">
+        <Input
+          value={ejercicio.urlImagen}
+          onChange={upd('urlImagen')}
+          placeholder="URL imagen (opcional)"
+          className="flex-1 text-xs"
+        />
+        <Input
+          value={ejercicio.urlVideo}
+          onChange={upd('urlVideo')}
+          placeholder="URL video (opcional)"
+          className="flex-1 text-xs"
+        />
+      </div>
+    </div>
+  );
+}
+
+function DiaCard({ dia, onAddEjercicio, onUpdateEjercicio, onDeleteEjercicio }) {
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="flex items-center gap-3 px-5 py-3 bg-gray-800">
+        <span className="text-white font-bold text-sm tracking-wide">DÍA {dia.numeroDia}</span>
+        {dia.descripcion && (
+          <span className="text-gray-300 text-sm">{dia.descripcion}</span>
+        )}
+      </div>
+
+      <div className="p-4 space-y-2">
+        {dia.ejercicios.length === 0 ? (
+          <p className="text-center text-gray-400 text-sm py-4">
+            Sin ejercicios. Agregá el primero.
+          </p>
+        ) : (
+          dia.ejercicios.map((ej, idx) => (
+            <EjercicioRow
+              key={ej.localId}
+              ejercicio={ej}
+              index={idx}
+              diaId={dia.id}
+              onUpdate={onUpdateEjercicio}
+              onDelete={onDeleteEjercicio}
+            />
+          ))
+        )}
+
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onAddEjercicio(dia.id)}
+          className="w-full mt-1 gap-1.5 border-dashed"
+        >
+          <Plus className="h-3.5 w-3.5" />
+          Agregar ejercicio
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 export function CreateRoutine() {
   const navigate = useNavigate();
-  const [studentName, setStudentName] = useState('');
-  const [exercises, setExercises] = useState([]);
- 
-  const [videoDialogOpen, setVideoDialogOpen] = useState(false);
-  const [selectedVideoUrl, setSelectedVideoUrl] = useState(undefined);
- 
-  const handleAddExercise = (newExercise) => {
-    const exercise = {
-      ...newExercise,
-      id: Date.now().toString(),
-    };
-    setExercises([...exercises, exercise]);
+
+  // Step 1: create routine
+  const [nombreAlumno, setNombreAlumno] = useState('');
+  const [rutinaId, setRutinaId] = useState(null);
+  const [creandoRutina, setCreandoRutina] = useState(false);
+  const [errorRutina, setErrorRutina] = useState('');
+
+  // Step 2+: days
+  const [dias, setDias] = useState([]);
+  const [diaModalOpen, setDiaModalOpen] = useState(false);
+  const [diaSeleccionado, setDiaSeleccionado] = useState(null);
+  const [diaDescripcion, setDiaDescripcion] = useState('');
+  const [creandoDia, setCreandoDia] = useState(false);
+  const [errorDia, setErrorDia] = useState('');
+
+  // Save
+  const [guardando, setGuardando] = useState(false);
+  const [errorGuardado, setErrorGuardado] = useState('');
+
+  const diasUsados = new Set(dias.map((d) => d.numeroDia));
+
+  const handleCrearRutina = async () => {
+    if (!nombreAlumno.trim()) {
+      setErrorRutina('Ingresá el nombre del alumno');
+      return;
+    }
+    setCreandoRutina(true);
+    setErrorRutina('');
+    try {
+      const data = await rutinas.create({ nombreAlumno: nombreAlumno.trim() });
+      setRutinaId(data.id);
+      setDiaModalOpen(true);
+    } catch {
+      setErrorRutina('Error al crear la rutina. Intentá de nuevo.');
+    } finally {
+      setCreandoRutina(false);
+    }
   };
- 
-  const handleUpdateExercise = (updatedExercise) => {
-    setExercises(
-      exercises.map((ex) => (ex.id === updatedExercise.id ? updatedExercise : ex))
+
+  const handleCerrarDiaModal = (open) => {
+    if (!open) {
+      setDiaSeleccionado(null);
+      setDiaDescripcion('');
+      setErrorDia('');
+    }
+    setDiaModalOpen(open);
+  };
+
+  const handleConfirmarDia = async () => {
+    if (!diaSeleccionado) return;
+    setCreandoDia(true);
+    setErrorDia('');
+    try {
+      const data = await diasRutina.create({
+        rutinaId,
+        numero: diaSeleccionado,
+        descripcion: diaDescripcion.trim(),
+      });
+      setDias((prev) =>
+        [
+          ...prev,
+          {
+            id: data.id,
+            numeroDia: diaSeleccionado,
+            descripcion: diaDescripcion.trim(),
+            ejercicios: [],
+          },
+        ].sort((a, b) => a.numeroDia - b.numeroDia)
+      );
+      handleCerrarDiaModal(false);
+    } catch {
+      setErrorDia('Error al crear el día. Intentá de nuevo.');
+    } finally {
+      setCreandoDia(false);
+    }
+  };
+
+  const handleAgregarEjercicio = (diaId) => {
+    setDias((prev) =>
+      prev.map((d) =>
+        d.id === diaId
+          ? {
+              ...d,
+              ejercicios: [
+                ...d.ejercicios,
+                {
+                  localId: `${Date.now()}-${Math.random()}`,
+                  nombre: '',
+                  kg: '',
+                  series: 3,
+                  reps: 10,
+                  urlImagen: '',
+                  urlVideo: '',
+                },
+              ],
+            }
+          : d
+      )
     );
   };
- 
-  const handleDeleteExercise = (id) => {
-    setExercises(exercises.filter((ex) => ex.id !== id));
-  };
- 
-  const handlePlayVideo = (videoUrl) => {
-    setSelectedVideoUrl(videoUrl);
-    setVideoDialogOpen(true);
-  };
- 
-const handleCreateRoutine = async () => {
-    if (!studentName.trim()) {
-      alert('Por favor ingresa el nombre del alumno');
-      return;
-    }
-    if (exercises.length === 0) {
-      alert('Por favor agrega al menos un ejercicio');
-      return;
-    }
 
+  const handleUpdateEjercicio = (diaId, localId, field, value) => {
+    setDias((prev) =>
+      prev.map((d) =>
+        d.id === diaId
+          ? {
+              ...d,
+              ejercicios: d.ejercicios.map((e) =>
+                e.localId === localId ? { ...e, [field]: value } : e
+              ),
+            }
+          : d
+      )
+    );
+  };
+
+  const handleDeleteEjercicio = (diaId, localId) => {
+    setDias((prev) =>
+      prev.map((d) =>
+        d.id === diaId
+          ? { ...d, ejercicios: d.ejercicios.filter((e) => e.localId !== localId) }
+          : d
+      )
+    );
+  };
+
+  const handleGuardarRutina = async () => {
+    const conNombre = dias.flatMap((d) => d.ejercicios).filter((e) => e.nombre.trim());
+    if (conNombre.length === 0) {
+      setErrorGuardado('Agregá al menos un ejercicio con nombre antes de guardar.');
+      return;
+    }
+    setGuardando(true);
+    setErrorGuardado('');
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/rutinas`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          nombreAlumno: studentName,
-          ejercicios: exercises.map(e => ({
-            nombre: e.name,
-            series: e.series,
-            repeticiones: e.repeticiones
-          }))
-        })
-      });
-
-      if (!response.ok) {
-        alert('Error al crear la rutina');
-        return;
+      for (const dia of dias) {
+        for (const ejercicio of dia.ejercicios) {
+          if (!ejercicio.nombre.trim()) continue;
+          const base = await ejerciciosBase.create({
+            nombre: ejercicio.nombre.trim(),
+            urlImagen: ejercicio.urlImagen || null,
+            urlVideo: ejercicio.urlVideo || null,
+          });
+          await ejerciciosDia.create({
+            diaRutinaId: dia.id,
+            ejercicioBaseId: base.id,
+            kg: parseFloat(ejercicio.kg) || 0,
+            series: parseInt(ejercicio.series) || 0,
+            repeticiones: parseInt(ejercicio.reps) || 0,
+          });
+        }
       }
-
-      alert(`Rutina para "${studentName}" creada con éxito!`);
       navigate('/alumnos');
     } catch {
-      alert('Error al conectar con el servidor');
+      setErrorGuardado('Error al guardar los ejercicios. Intentá de nuevo.');
+    } finally {
+      setGuardando(false);
     }
   };
- 
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6 relative">
-      <div className="max-w-6xl mx-auto">
-        {/* Back Button */}
-        <Button
-          variant="ghost"
-          onClick={() => navigate('/')}
-          className="mb-4 gap-2"
-        >
+    <div className="min-h-screen bg-gray-50 p-6">
+      <div className="max-w-4xl mx-auto space-y-6">
+
+        {/* Back */}
+        <Button variant="ghost" onClick={() => navigate('/')} className="gap-2">
           <ArrowLeft className="h-4 w-4" />
           Volver al inicio
         </Button>
- 
+
         {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="bg-indigo-600 p-3 rounded-lg">
-              <Dumbbell className="h-8 w-8 text-white" />
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Crear Rutina de Entrenamiento</h1>
-              <p className="text-gray-600">Planifica tus ejercicios</p>
-            </div>
+        <div className="flex items-center gap-3">
+          <div className="bg-gray-800 p-3 rounded-xl">
+            <Dumbbell className="h-7 w-7 text-white" />
           </div>
- 
-          {/* Student Name Input */}
-          <div className="bg-white p-4 rounded-lg border border-gray-200 mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Nombre Alumno
-            </label>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Crear Rutina</h1>
+            <p className="text-sm text-gray-500">Planificá los días y ejercicios del alumno</p>
+          </div>
+        </div>
+
+        {/* Step 1: nombre del alumno */}
+        <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+          <label className="block text-sm font-semibold text-gray-700 mb-2">
+            Nombre del alumno
+          </label>
+          <div className="flex gap-3">
             <Input
-              value={studentName}
-              onChange={(e) => setStudentName(e.target.value)}
+              value={nombreAlumno}
+              onChange={(e) => {
+                setNombreAlumno(e.target.value);
+                if (errorRutina) setErrorRutina('');
+              }}
               placeholder="Ej: Juan Pérez"
-              className="text-lg"
+              disabled={!!rutinaId}
+              className="flex-1 text-base"
+              onKeyDown={(e) => e.key === 'Enter' && !rutinaId && handleCrearRutina()}
             />
-          </div>
- 
-          {/* Add Exercise Button */}
-          <div className="flex justify-end">
-            <AddExerciseDialog onAdd={handleAddExercise} />
-          </div>
-        </div>
- 
-        {/* Exercise List */}
-        <div className="space-y-3">
-          {exercises.length === 0 ? (
-            <div className="bg-white p-12 rounded-lg border border-gray-200 text-center">
-              <Dumbbell className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
-                No hay ejercicios en tu rutina
-              </h3>
-              <p className="text-gray-500 mb-6">
-                Comienza agregando tu primer ejercicio
-              </p>
-              <AddExerciseDialog onAdd={handleAddExercise} />
-            </div>
-          ) : (
-            exercises.map((exercise, index) => (
-              <div key={exercise.id} className="flex items-center gap-3">
-                <div className="bg-indigo-600 text-white w-8 h-8 rounded-full flex items-center justify-center font-medium text-sm flex-shrink-0">
-                  {index + 1}
-                </div>
-                <div className="flex-1">
-                  <ExerciseItem
-                    exercise={exercise}
-                    onUpdate={handleUpdateExercise}
-                    onDelete={handleDeleteExercise}
-                    onPlayVideo={handlePlayVideo}
-                  />
-                </div>
+            {!rutinaId ? (
+              <Button
+                onClick={handleCrearRutina}
+                disabled={creandoRutina}
+                className="gap-2 px-6 shrink-0"
+              >
+                {creandoRutina && <Loader2 className="h-4 w-4 animate-spin" />}
+                Crear Rutina
+              </Button>
+            ) : (
+              <div className="flex items-center gap-2 px-4 py-2 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700 font-medium shrink-0">
+                ✓ Rutina creada
               </div>
-            ))
-          )}
-        </div>
- 
-        {/* Create Routine Button */}
-        {exercises.length > 0 && (
-          <div className="mt-8 flex justify-center">
-            <Button
-              size="lg"
-              onClick={handleCreateRoutine}
-              className="gap-2 px-12 py-6 text-lg"
-            >
-              <Save className="h-5 w-5" />
-              Crear Rutina
-            </Button>
+            )}
           </div>
+          {errorRutina && <p className="text-red-500 text-sm mt-2">{errorRutina}</p>}
+        </div>
+
+        {/* Step 2+: days */}
+        {rutinaId && (
+          <>
+            {dias.length === 0 ? (
+              <div className="bg-white rounded-xl border border-gray-200 p-12 text-center shadow-sm">
+                <CalendarDays className="h-14 w-14 text-gray-300 mx-auto mb-3" />
+                <p className="text-gray-900 font-semibold mb-1">Sin días agregados</p>
+                <p className="text-gray-500 text-sm mb-5">
+                  Seleccioná un día para comenzar a planificar
+                </p>
+                <Button onClick={() => setDiaModalOpen(true)} className="gap-2">
+                  <Plus className="h-4 w-4" />
+                  Agregar primer día
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {dias.map((dia) => (
+                  <DiaCard
+                    key={dia.id}
+                    dia={dia}
+                    onAddEjercicio={handleAgregarEjercicio}
+                    onUpdateEjercicio={handleUpdateEjercicio}
+                    onDeleteEjercicio={handleDeleteEjercicio}
+                  />
+                ))}
+
+                {diasUsados.size < TOTAL_DIAS && (
+                  <Button
+                    variant="outline"
+                    onClick={() => setDiaModalOpen(true)}
+                    className="w-full gap-2 border-dashed py-5"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Agregar otro día
+                  </Button>
+                )}
+              </div>
+            )}
+
+            {/* Save button */}
+            {dias.length > 0 && (
+              <div className="pt-2 pb-8">
+                {errorGuardado && (
+                  <p className="text-red-500 text-sm text-center mb-3">{errorGuardado}</p>
+                )}
+                <Button
+                  size="lg"
+                  onClick={handleGuardarRutina}
+                  disabled={guardando}
+                  className="w-full gap-2 py-6 text-base"
+                >
+                  {guardando ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <Save className="h-5 w-5" />
+                  )}
+                  {guardando ? 'Guardando...' : 'Guardar Rutina'}
+                </Button>
+              </div>
+            )}
+          </>
         )}
       </div>
- 
-      {/* Video Dialog */}
-      <VideoDialog
-        open={videoDialogOpen}
-        onOpenChange={setVideoDialogOpen}
-        videoUrl={selectedVideoUrl}
-      />
+
+      {/* Day selector modal */}
+      <Dialog open={diaModalOpen} onOpenChange={handleCerrarDiaModal}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Seleccionar día</DialogTitle>
+          </DialogHeader>
+
+          <div className="grid grid-cols-4 gap-2">
+            {Array.from({ length: TOTAL_DIAS }, (_, i) => i + 1).map((n) => {
+              const usado = diasUsados.has(n);
+              const activo = diaSeleccionado === n;
+              return (
+                <button
+                  key={n}
+                  disabled={usado}
+                  onClick={() => setDiaSeleccionado(n)}
+                  className={`rounded-lg py-3 text-sm font-semibold border transition-all ${
+                    usado
+                      ? 'bg-gray-100 text-gray-300 border-gray-200 cursor-not-allowed'
+                      : activo
+                      ? 'bg-gray-800 text-white border-gray-800'
+                      : 'bg-white text-gray-700 border-gray-200 hover:border-gray-400 hover:bg-gray-50'
+                  }`}
+                >
+                  Día {n}
+                </button>
+              );
+            })}
+          </div>
+
+          {diaSeleccionado && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Descripción{' '}
+                <span className="text-gray-400 font-normal">(opcional)</span>
+              </label>
+              <Input
+                value={diaDescripcion}
+                onChange={(e) => setDiaDescripcion(e.target.value)}
+                placeholder="Ej: Piernas, Pecho y Tríceps"
+                onKeyDown={(e) => e.key === 'Enter' && handleConfirmarDia()}
+                autoFocus
+              />
+            </div>
+          )}
+
+          {errorDia && <p className="text-red-500 text-sm">{errorDia}</p>}
+
+          <DialogFooter>
+            <Button
+              onClick={handleConfirmarDia}
+              disabled={!diaSeleccionado || creandoDia}
+              className="w-full gap-2"
+            >
+              {creandoDia && <Loader2 className="h-4 w-4 animate-spin" />}
+              {diaSeleccionado ? `Agregar Día ${diaSeleccionado}` : 'Seleccioná un día'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
