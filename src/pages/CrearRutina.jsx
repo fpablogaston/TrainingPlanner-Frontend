@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { Dumbbell, ArrowLeft, Plus, Trash2, Save, CalendarDays, Loader2 } from 'lucide-react';
 import { Button } from '../components/ui/button';
@@ -14,23 +14,63 @@ import { rutinas, diasRutina, ejerciciosBase, ejerciciosDia } from '../services/
 
 const TOTAL_DIAS = 7;
 
-function EjercicioRow({ ejercicio, index, diaId, onUpdate, onDelete }) {
+function EjercicioRow({ ejercicio, index, diaId, biblioteca, onUpdate, onSelectBase, onDelete }) {
+  const [sugerencias, setSugerencias] = useState([]);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+
   const upd = (field) => (e) => onUpdate(diaId, ejercicio.localId, field, e.target.value);
+
+  const handleNombreChange = (e) => {
+    const valor = e.target.value;
+    onUpdate(diaId, ejercicio.localId, 'nombre', valor);
+    if (valor.trim().length >= 1) {
+      const filtradas = biblioteca
+        .filter((b) => b.nombre.toLowerCase().includes(valor.toLowerCase()))
+        .slice(0, 6);
+      setSugerencias(filtradas);
+      setDropdownOpen(filtradas.length > 0);
+    } else {
+      setSugerencias([]);
+      setDropdownOpen(false);
+    }
+  };
+
+  const handleSelect = (base) => {
+    onSelectBase(diaId, ejercicio.localId, base);
+    setSugerencias([]);
+    setDropdownOpen(false);
+  };
 
   return (
     <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-2">
-      {/* Main row */}
       <div className="flex items-center gap-2 flex-wrap">
         <span className="flex-shrink-0 w-6 h-6 rounded-full bg-gray-800 text-white text-xs flex items-center justify-center font-semibold">
           {index + 1}
         </span>
 
-        <Input
-          value={ejercicio.nombre}
-          onChange={upd('nombre')}
-          placeholder="Nombre del ejercicio"
-          className="flex-1 min-w-40"
-        />
+        <div className="relative flex-1 min-w-40">
+          <Input
+            value={ejercicio.nombre}
+            onChange={handleNombreChange}
+            onBlur={() => setTimeout(() => setDropdownOpen(false), 150)}
+            placeholder="Nombre del ejercicio"
+            className={ejercicio.baseId ? 'border-green-400 bg-green-50' : ''}
+          />
+          {dropdownOpen && (
+            <div className="absolute z-10 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden">
+              {sugerencias.map((base) => (
+                <button
+                  key={base.id}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => handleSelect(base)}
+                  className="w-full text-left px-3 py-2 text-sm hover:bg-indigo-50 hover:text-indigo-700 transition-colors"
+                >
+                  {base.nombre}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
 
         <div className="flex items-center gap-1">
           <span className="text-xs text-gray-500 whitespace-nowrap">KG</span>
@@ -77,26 +117,29 @@ function EjercicioRow({ ejercicio, index, diaId, onUpdate, onDelete }) {
         </Button>
       </div>
 
-      {/* Optional URLs */}
-      <div className="flex gap-2 pl-8">
-        <Input
-          value={ejercicio.urlImagen}
-          onChange={upd('urlImagen')}
-          placeholder="URL imagen (opcional)"
-          className="flex-1 text-xs"
-        />
-        <Input
-          value={ejercicio.urlVideo}
-          onChange={upd('urlVideo')}
-          placeholder="URL video (opcional)"
-          className="flex-1 text-xs"
-        />
-      </div>
+      {ejercicio.baseId ? (
+        <p className="pl-8 text-xs text-green-600">✓ Ejercicio de la biblioteca</p>
+      ) : (
+        <div className="flex gap-2 pl-8">
+          <Input
+            value={ejercicio.urlImagen}
+            onChange={upd('urlImagen')}
+            placeholder="URL imagen (opcional)"
+            className="flex-1 text-xs"
+          />
+          <Input
+            value={ejercicio.urlVideo}
+            onChange={upd('urlVideo')}
+            placeholder="URL video (opcional)"
+            className="flex-1 text-xs"
+          />
+        </div>
+      )}
     </div>
   );
 }
 
-function DiaCard({ dia, onAddEjercicio, onUpdateEjercicio, onDeleteEjercicio }) {
+function DiaCard({ dia, biblioteca, onAddEjercicio, onUpdateEjercicio, onSelectBase, onDeleteEjercicio }) {
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
       <div className="flex items-center gap-3 px-5 py-3 bg-gray-800">
@@ -118,7 +161,9 @@ function DiaCard({ dia, onAddEjercicio, onUpdateEjercicio, onDeleteEjercicio }) 
               ejercicio={ej}
               index={idx}
               diaId={dia.id}
+              biblioteca={biblioteca}
               onUpdate={onUpdateEjercicio}
+              onSelectBase={onSelectBase}
               onDelete={onDeleteEjercicio}
             />
           ))
@@ -141,13 +186,13 @@ function DiaCard({ dia, onAddEjercicio, onUpdateEjercicio, onDeleteEjercicio }) 
 export function CreateRoutine() {
   const navigate = useNavigate();
 
-  // Step 1: create routine
+  const [biblioteca, setBiblioteca] = useState([]);
+
   const [nombreAlumno, setNombreAlumno] = useState('');
   const [rutinaId, setRutinaId] = useState(null);
   const [creandoRutina, setCreandoRutina] = useState(false);
   const [errorRutina, setErrorRutina] = useState('');
 
-  // Step 2+: days
   const [dias, setDias] = useState([]);
   const [diaModalOpen, setDiaModalOpen] = useState(false);
   const [diaSeleccionado, setDiaSeleccionado] = useState(null);
@@ -155,9 +200,12 @@ export function CreateRoutine() {
   const [creandoDia, setCreandoDia] = useState(false);
   const [errorDia, setErrorDia] = useState('');
 
-  // Save
   const [guardando, setGuardando] = useState(false);
   const [errorGuardado, setErrorGuardado] = useState('');
+
+  useEffect(() => {
+    ejerciciosBase.getAll().then(setBiblioteca).catch(() => {});
+  }, []);
 
   const diasUsados = new Set(dias.map((d) => d.numeroDia));
 
@@ -228,6 +276,7 @@ export function CreateRoutine() {
                 {
                   localId: `${Date.now()}-${Math.random()}`,
                   nombre: '',
+                  baseId: null,
                   kg: '',
                   series: 3,
                   reps: 10,
@@ -248,7 +297,24 @@ export function CreateRoutine() {
           ? {
               ...d,
               ejercicios: d.ejercicios.map((e) =>
-                e.localId === localId ? { ...e, [field]: value } : e
+                e.localId === localId
+                  ? { ...e, [field]: value, ...(field === 'nombre' ? { baseId: null } : {}) }
+                  : e
+              ),
+            }
+          : d
+      )
+    );
+  };
+
+  const handleSelectBase = (diaId, localId, base) => {
+    setDias((prev) =>
+      prev.map((d) =>
+        d.id === diaId
+          ? {
+              ...d,
+              ejercicios: d.ejercicios.map((e) =>
+                e.localId === localId ? { ...e, nombre: base.nombre, baseId: base.id } : e
               ),
             }
           : d
@@ -278,14 +344,22 @@ export function CreateRoutine() {
       for (const dia of dias) {
         for (const ejercicio of dia.ejercicios) {
           if (!ejercicio.nombre.trim()) continue;
-          const base = await ejerciciosBase.create({
-            nombre: ejercicio.nombre.trim(),
-            urlImagen: ejercicio.urlImagen || null,
-            urlVideo: ejercicio.urlVideo || null,
-          });
+
+          let baseId = ejercicio.baseId;
+          if (!baseId) {
+            const base = await ejerciciosBase.create({
+              nombre: ejercicio.nombre.trim(),
+              imagenUrl: ejercicio.urlImagen || null,
+              videoUrl: ejercicio.urlVideo || null,
+              esGlobal: false,
+            });
+            baseId = base.id;
+            setBiblioteca((prev) => [...prev, base]);
+          }
+
           await ejerciciosDia.create({
             diaRutinaId: dia.id,
-            ejercicioBaseId: base.id,
+            ejercicioBaseId: baseId,
             kg: parseFloat(ejercicio.kg) || 0,
             series: parseInt(ejercicio.series) || 0,
             repeticiones: parseInt(ejercicio.reps) || 0,
@@ -304,13 +378,11 @@ export function CreateRoutine() {
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-4xl mx-auto space-y-6">
 
-        {/* Back */}
         <Button variant="ghost" onClick={() => navigate('/')} className="gap-2">
           <ArrowLeft className="h-4 w-4" />
           Volver al inicio
         </Button>
 
-        {/* Header */}
         <div className="flex items-center gap-3">
           <div className="bg-gray-800 p-3 rounded-xl">
             <Dumbbell className="h-7 w-7 text-white" />
@@ -321,7 +393,6 @@ export function CreateRoutine() {
           </div>
         </div>
 
-        {/* Step 1: nombre del alumno */}
         <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
           <label className="block text-sm font-semibold text-gray-700 mb-2">
             Nombre del alumno
@@ -356,7 +427,6 @@ export function CreateRoutine() {
           {errorRutina && <p className="text-red-500 text-sm mt-2">{errorRutina}</p>}
         </div>
 
-        {/* Step 2+: days */}
         {rutinaId && (
           <>
             {dias.length === 0 ? (
@@ -377,8 +447,10 @@ export function CreateRoutine() {
                   <DiaCard
                     key={dia.id}
                     dia={dia}
+                    biblioteca={biblioteca}
                     onAddEjercicio={handleAgregarEjercicio}
                     onUpdateEjercicio={handleUpdateEjercicio}
+                    onSelectBase={handleSelectBase}
                     onDeleteEjercicio={handleDeleteEjercicio}
                   />
                 ))}
@@ -396,7 +468,6 @@ export function CreateRoutine() {
               </div>
             )}
 
-            {/* Save button */}
             {dias.length > 0 && (
               <div className="pt-2 pb-8">
                 {errorGuardado && (
@@ -421,7 +492,6 @@ export function CreateRoutine() {
         )}
       </div>
 
-      {/* Day selector modal */}
       <Dialog open={diaModalOpen} onOpenChange={handleCerrarDiaModal}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>

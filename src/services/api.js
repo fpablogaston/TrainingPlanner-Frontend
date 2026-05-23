@@ -80,6 +80,13 @@ export const ejerciciosDia = {
       body: JSON.stringify(data),
     }),
 
+  update: (id, data) =>
+    request(`/api/EjerciciosDia/${id}`, {
+      method: 'PUT',
+      headers: buildHeaders(),
+      body: JSON.stringify(data),
+    }),
+
   delete: (id) =>
     request(`/api/EjerciciosDia/${id}`, {
       method: 'DELETE',
@@ -95,6 +102,13 @@ export const ejerciciosBase = {
   create: (data) =>
     request('/api/ejerciciosbase', {
       method: 'POST',
+      headers: buildHeaders(),
+      body: JSON.stringify(data),
+    }),
+
+  update: (id, data) =>
+    request(`/api/ejerciciosbase/${id}`, {
+      method: 'PUT',
       headers: buildHeaders(),
       body: JSON.stringify(data),
     }),
