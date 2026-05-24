@@ -215,21 +215,24 @@ export function CreateRoutine() {
 
   const diasUsados = new Set(dias.map((d) => d.numeroDia));
 
+  const abrirDropdownAlumnos = (filtro = '') => {
+    const lista = filtro.trim()
+      ? alumnos.filter((a) => a.nombreUsuario.toLowerCase().includes(filtro.toLowerCase()))
+      : alumnos;
+    setSugerenciasAlumno(lista);
+    setDropdownAlumnoOpen(lista.length > 0);
+  };
+
+  const handleFocusAlumno = () => {
+    if (!rutinaId) abrirDropdownAlumnos(nombreAlumno);
+  };
+
   const handleNombreAlumnoChange = (e) => {
     const valor = e.target.value;
     setNombreAlumno(valor);
     setAlumnoId(null);
     if (errorRutina) setErrorRutina('');
-    if (valor.trim().length >= 1) {
-      const filtradas = alumnos
-        .filter((a) => a.nombreUsuario.toLowerCase().includes(valor.toLowerCase()))
-        .slice(0, 6);
-      setSugerenciasAlumno(filtradas);
-      setDropdownAlumnoOpen(filtradas.length > 0);
-    } else {
-      setSugerenciasAlumno([]);
-      setDropdownAlumnoOpen(false);
-    }
+    abrirDropdownAlumnos(valor);
   };
 
   const handleSelectAlumno = (alumno) => {
@@ -437,6 +440,7 @@ export function CreateRoutine() {
               <Input
                 value={nombreAlumno}
                 onChange={handleNombreAlumnoChange}
+                onFocus={handleFocusAlumno}
                 onBlur={() => setTimeout(() => setDropdownAlumnoOpen(false), 150)}
                 placeholder="Ej: Juan Pérez"
                 disabled={!!rutinaId}
