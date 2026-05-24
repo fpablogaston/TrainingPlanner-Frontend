@@ -10,7 +10,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '../components/ui/dialog';
-import { rutinas, diasRutina, ejerciciosBase, ejerciciosDia } from '../services/api';
+import { rutinas, diasRutina, ejerciciosBase, ejerciciosDia, usuarios } from '../services/api';
 
 const TOTAL_DIAS = 7;
 
@@ -187,8 +187,13 @@ export function CreateRoutine() {
   const navigate = useNavigate();
 
   const [biblioteca, setBiblioteca] = useState([]);
+  const [alumnos, setAlumnos] = useState([]);
 
   const [nombreAlumno, setNombreAlumno] = useState('');
+  const [alumnoId, setAlumnoId] = useState(null);
+  const [sugerenciasAlumno, setSugerenciasAlumno] = useState([]);
+  const [dropdownAlumnoOpen, setDropdownAlumnoOpen] = useState(false);
+
   const [rutinaId, setRutinaId] = useState(null);
   const [creandoRutina, setCreandoRutina] = useState(false);
   const [errorRutina, setErrorRutina] = useState('');
@@ -205,9 +210,34 @@ export function CreateRoutine() {
 
   useEffect(() => {
     ejerciciosBase.getAll().then(setBiblioteca).catch(() => {});
+    usuarios.getAlumnos().then(setAlumnos).catch(() => {});
   }, []);
 
   const diasUsados = new Set(dias.map((d) => d.numeroDia));
+
+  const handleNombreAlumnoChange = (e) => {
+    const valor = e.target.value;
+    setNombreAlumno(valor);
+    setAlumnoId(null);
+    if (errorRutina) setErrorRutina('');
+    if (valor.trim().length >= 1) {
+      const filtradas = alumnos
+        .filter((a) => a.nombreUsuario.toLowerCase().includes(valor.toLowerCase()))
+        .slice(0, 6);
+      setSugerenciasAlumno(filtradas);
+      setDropdownAlumnoOpen(filtradas.length > 0);
+    } else {
+      setSugerenciasAlumno([]);
+      setDropdownAlumnoOpen(false);
+    }
+  };
+
+  const handleSelectAlumno = (alumno) => {
+    setNombreAlumno(alumno.nombreUsuario);
+    setAlumnoId(alumno.id);
+    setSugerenciasAlumno([]);
+    setDropdownAlumnoOpen(false);
+  };
 
   const handleCrearRutina = async () => {
     if (!nombreAlumno.trim()) {
@@ -366,6 +396,11 @@ export function CreateRoutine() {
           });
         }
       }
+
+      if (alumnoId) {
+        await usuarios.asignarRutina(alumnoId, rutinaId);
+      }
+
       navigate('/alumnos');
     } catch {
       setErrorGuardado('Error al guardar los ejercicios. Intentá de nuevo.');
@@ -398,17 +433,31 @@ export function CreateRoutine() {
             Nombre del alumno
           </label>
           <div className="flex gap-3">
-            <Input
-              value={nombreAlumno}
-              onChange={(e) => {
-                setNombreAlumno(e.target.value);
-                if (errorRutina) setErrorRutina('');
-              }}
-              placeholder="Ej: Juan Pérez"
-              disabled={!!rutinaId}
-              className="flex-1 text-base"
-              onKeyDown={(e) => e.key === 'Enter' && !rutinaId && handleCrearRutina()}
-            />
+            <div className="relative flex-1">
+              <Input
+                value={nombreAlumno}
+                onChange={handleNombreAlumnoChange}
+                onBlur={() => setTimeout(() => setDropdownAlumnoOpen(false), 150)}
+                placeholder="Ej: Juan Pérez"
+                disabled={!!rutinaId}
+                className={`text-base w-full ${alumnoId ? 'border-green-400 bg-green-50' : ''}`}
+                onKeyDown={(e) => e.key === 'Enter' && !rutinaId && handleCrearRutina()}
+              />
+              {dropdownAlumnoOpen && (
+                <div className="absolute z-10 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden">
+                  {sugerenciasAlumno.map((alumno) => (
+                    <button
+                      key={alumno.id}
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => handleSelectAlumno(alumno)}
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-violet-50 hover:text-violet-700 transition-colors"
+                    >
+                      {alumno.nombreUsuario}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
             {!rutinaId ? (
               <Button
                 onClick={handleCrearRutina}
@@ -424,6 +473,11 @@ export function CreateRoutine() {
               </div>
             )}
           </div>
+          {alumnoId && !rutinaId && (
+            <p className="text-green-600 text-xs mt-2">
+              ✓ Alumno existente — la rutina se asignará automáticamente al guardar
+            </p>
+          )}
           {errorRutina && <p className="text-red-500 text-sm mt-2">{errorRutina}</p>}
         </div>
 

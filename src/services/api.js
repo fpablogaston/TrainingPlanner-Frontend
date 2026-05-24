@@ -115,6 +115,11 @@ export const usuarios = {
   getMiRutina: () =>
     request('/api/usuarios/mi-rutina', { headers: buildHeaders() }),
 
+  getAlumnos: async () => {
+    const todos = await request('/api/usuarios', { headers: buildHeaders() });
+    return (todos ?? []).filter((u) => u.rol === 'Alumno');
+  },
+
   asignarRutina: (id, rutinaId) =>
     request(`/api/usuarios/${id}`, {
       method: 'PUT',

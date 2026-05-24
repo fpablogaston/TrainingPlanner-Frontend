@@ -1,9 +1,16 @@
 import { useNavigate } from 'react-router';
-import { Users, PlusCircle, BookOpen, Dumbbell, UserCog } from 'lucide-react';
+import { Users, PlusCircle, BookOpen, Dumbbell, LogIn, LogOut } from 'lucide-react';
 
 export function Home() {
   const navigate = useNavigate();
+  const token = localStorage.getItem('token');
+  const nombre = localStorage.getItem('nombre') ?? localStorage.getItem('usuario') ?? '';
   const esEntrenador = localStorage.getItem('rol') === 'Entrenador';
+
+  const handleLogout = () => {
+    localStorage.clear();
+    window.location.reload();
+  };
 
   return (
     <div
@@ -15,6 +22,32 @@ export function Home() {
       }}
     >
       <div className="absolute inset-0 bg-black/55" />
+
+      {/* Session button — top right */}
+      <div className="absolute top-5 right-6 z-10 flex items-center gap-3">
+        {token ? (
+          <>
+            {nombre && (
+              <span className="text-white/80 text-sm font-medium hidden sm:block">{nombre}</span>
+            )}
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-2 px-4 py-2 bg-white/15 hover:bg-white/25 backdrop-blur text-white text-sm font-medium rounded-lg border border-white/25 transition-colors"
+            >
+              <LogOut className="h-4 w-4" />
+              Cerrar sesión
+            </button>
+          </>
+        ) : (
+          <button
+            onClick={() => navigate('/login')}
+            className="flex items-center gap-2 px-4 py-2 bg-white/15 hover:bg-white/25 backdrop-blur text-white text-sm font-medium rounded-lg border border-white/25 transition-colors"
+          >
+            <LogIn className="h-4 w-4" />
+            Iniciar sesión
+          </button>
+        )}
+      </div>
 
       <div className="relative z-10 max-w-5xl w-full">
 
@@ -34,7 +67,7 @@ export function Home() {
         </div>
 
         {/* Cards */}
-        <div className={`grid gap-8 ${esEntrenador ? 'md:grid-cols-2 lg:grid-cols-4' : 'md:grid-cols-3'}`}>
+        <div className="grid gap-8 md:grid-cols-3">
 
           {/* Alumnos */}
           <div
@@ -87,26 +120,20 @@ export function Home() {
             </button>
           </div>
 
-          {/* Usuarios — solo Entrenador */}
-          {esEntrenador && (
-            <div
-              onClick={() => navigate('/usuarios')}
-              className="group bg-white/95 backdrop-blur-sm p-10 rounded-2xl shadow-xl flex flex-col items-center text-center cursor-pointer border-2 border-transparent hover:border-orange-500 transition-all duration-200"
-            >
-              <div className="bg-orange-100 p-6 rounded-full mb-6 group-hover:bg-orange-600 transition-colors duration-200">
-                <UserCog className="h-12 w-12 text-orange-600 group-hover:text-white transition-colors duration-200" />
-              </div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-3">Usuarios</h2>
-              <p className="text-gray-500 text-base mb-8">
-                Creá y gestioná las cuentas de tus alumnos
-              </p>
-              <button className="px-6 py-2.5 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 group-hover:bg-orange-600 group-hover:text-white group-hover:border-orange-600 transition-all duration-200">
-                Ver Usuarios
-              </button>
-            </div>
-          )}
-
         </div>
+
+        {/* Footer link — Gestionar usuarios (solo Entrenador) */}
+        {esEntrenador && (
+          <p className="text-center mt-10">
+            <button
+              onClick={() => navigate('/usuarios')}
+              className="text-white/50 hover:text-white/80 text-sm underline underline-offset-2 transition-colors"
+            >
+              Gestionar usuarios
+            </button>
+          </p>
+        )}
+
       </div>
     </div>
   );
