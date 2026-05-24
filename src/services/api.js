@@ -99,6 +99,32 @@ export const ejerciciosDia = {
     }),
 };
 
+// --- Usuarios ---
+export const usuarios = {
+  getAll: () =>
+    request('/api/usuarios', { headers: buildHeaders() }),
+
+  create: (data) =>
+    request('/api/usuarios', {
+      method: 'POST',
+      headers: buildHeaders(),
+      body: JSON.stringify(data),
+    }),
+
+  asignarRutina: (id, rutinaId) =>
+    request(`/api/usuarios/${id}`, {
+      method: 'PUT',
+      headers: buildHeaders(),
+      body: JSON.stringify({ rutinaId }),
+    }),
+
+  delete: (id) =>
+    request(`/api/usuarios/${id}`, {
+      method: 'DELETE',
+      headers: buildHeaders(),
+    }),
+};
+
 // --- Ejercicios base (biblioteca) ---
 export const ejerciciosBase = {
   getAll: () =>

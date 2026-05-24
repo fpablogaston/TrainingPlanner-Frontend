@@ -1,8 +1,9 @@
 import { useNavigate } from 'react-router';
-import { Users, PlusCircle, BookOpen, Dumbbell } from 'lucide-react';
+import { Users, PlusCircle, BookOpen, Dumbbell, UserCog } from 'lucide-react';
 
 export function Home() {
   const navigate = useNavigate();
+  const esEntrenador = localStorage.getItem('rol') === 'Entrenador';
 
   return (
     <div
@@ -33,7 +34,7 @@ export function Home() {
         </div>
 
         {/* Cards */}
-        <div className="grid md:grid-cols-3 gap-8">
+        <div className={`grid gap-8 ${esEntrenador ? 'md:grid-cols-2 lg:grid-cols-4' : 'md:grid-cols-3'}`}>
 
           {/* Alumnos */}
           <div
@@ -85,6 +86,25 @@ export function Home() {
               Ver Ejercicios
             </button>
           </div>
+
+          {/* Usuarios — solo Entrenador */}
+          {esEntrenador && (
+            <div
+              onClick={() => navigate('/usuarios')}
+              className="group bg-white/95 backdrop-blur-sm p-10 rounded-2xl shadow-xl flex flex-col items-center text-center cursor-pointer border-2 border-transparent hover:border-orange-500 transition-all duration-200"
+            >
+              <div className="bg-orange-100 p-6 rounded-full mb-6 group-hover:bg-orange-600 transition-colors duration-200">
+                <UserCog className="h-12 w-12 text-orange-600 group-hover:text-white transition-colors duration-200" />
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-3">Usuarios</h2>
+              <p className="text-gray-500 text-base mb-8">
+                Creá y gestioná las cuentas de tus alumnos
+              </p>
+              <button className="px-6 py-2.5 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 group-hover:bg-orange-600 group-hover:text-white group-hover:border-orange-600 transition-all duration-200">
+                Ver Usuarios
+              </button>
+            </div>
+          )}
 
         </div>
       </div>
