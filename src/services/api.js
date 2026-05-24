@@ -25,12 +25,17 @@ async function request(path, options = {}) {
 
 // --- Auth ---
 export const auth = {
-  login: (usuario, password) =>
-    request('/api/auth/login', {
+  login: async (usuario, password) => {
+    const data = await request('/api/auth/login', {
       method: 'POST',
       headers: buildHeaders(false),
       body: JSON.stringify({ usuario, password }),
-    }),
+    });
+    localStorage.setItem('token', data.token);
+    localStorage.setItem('rol', data.rol);
+    localStorage.setItem('usuarioId', data.usuarioId);
+    return data;
+  },
 };
 
 // --- Rutinas ---

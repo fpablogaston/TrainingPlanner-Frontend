@@ -3,8 +3,7 @@ import { useNavigate } from 'react-router';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Dumbbell } from 'lucide-react';
-
-const API_URL = import.meta.env.VITE_API_URL;
+import { auth } from '../services/api';
 
 export function Login() {
   const navigate = useNavigate();
@@ -23,22 +22,14 @@ export function Login() {
     setError('');
 
     try {
-      const response = await fetch(`${API_URL}/api/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ usuario, password })
-      });
-
-      if (!response.ok) {
-        setError('Usuario o contraseña incorrectos');
-        return;
+      const data = await auth.login(usuario, password);
+      if (data.rol === 'Alumno') {
+        navigate('/mi-rutina');
+      } else {
+        navigate('/');
       }
-
-      const data = await response.json();
-      localStorage.setItem('token', data.token);
-      navigate('/');
     } catch {
-      setError('Error al conectar con el servidor');
+      setError('Usuario o contraseña incorrectos');
     } finally {
       setLoading(false);
     }
