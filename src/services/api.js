@@ -34,6 +34,7 @@ export const auth = {
     localStorage.setItem('token', data.token);
     localStorage.setItem('rol', data.rol);
     localStorage.setItem('usuarioId', data.usuarioId);
+    localStorage.setItem('nombre', data.nombre ?? usuario);
     return data;
   },
 };
@@ -110,6 +111,9 @@ export const usuarios = {
       headers: buildHeaders(),
       body: JSON.stringify(data),
     }),
+
+  getMiRutina: () =>
+    request('/api/usuarios/mi-rutina', { headers: buildHeaders() }),
 
   asignarRutina: (id, rutinaId) =>
     request(`/api/usuarios/${id}`, {
