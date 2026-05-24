@@ -43,6 +43,7 @@ function NuevoAlumnoModal({ open, onClose, rutinasDisponibles, onCreado }) {
       const nuevo = await usuarios.create({
         nombreUsuario: form.nombreUsuario.trim(),
         password: form.password,
+        rol: 'Alumno',
       });
       if (form.rutinaId) {
         const actualizado = await usuarios.asignarRutina(nuevo.id, parseInt(form.rutinaId));
@@ -105,7 +106,7 @@ function NuevoAlumnoModal({ open, onClose, rutinasDisponibles, onCreado }) {
             >
               <option value="">Sin rutina asignada</option>
               {rutinasDisponibles.map((r) => (
-                <option key={r.id} value={r.id}>{r.nombre}</option>
+                <option key={r.id} value={r.id}>{r.nombreAlumno}</option>
               ))}
             </select>
           </div>
